@@ -5,6 +5,7 @@
  */
 
 const PHOTON_URL = 'https://photon.komoot.io/api';
+const PHOTON_REVERSE = 'https://photon.komoot.io/reverse';
 // /api/overpass håndteres av Vite-proxy i dev og Vercel-funksjon i prod
 const OVERPASS_ENDPOINTS = ['/api/overpass'];
 
@@ -40,15 +41,17 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
 
 async function fromPhoton(category, lat, lng, radiusMeters, signal) {
   const def = CATEGORIES[category];
+  // /reverse er nærhet-basert og returnerer ALLE features av tag innen radius
+  // (ikke tekstsøk), så vi får dramatisk flere treff enn /api?q=...
   const params = new URLSearchParams({
-    q: def.q,
     lat: lat.toFixed(6),
     lon: lng.toFixed(6),
     limit: '50',
+    radius: Math.min(Math.round(radiusMeters / 1000) + 1, 30).toString(), // km, maks 30
     osm_tag: def.tag,
     lang: 'default'
   });
-  const url = `${PHOTON_URL}?${params}`;
+  const url = `${PHOTON_REVERSE}?${params}`;
   console.log('[photon] →', category);
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error('Photon HTTP ' + res.status);
@@ -60,7 +63,8 @@ async function fromPhoton(category, lat, lng, radiusMeters, signal) {
       const [ln, la] = coords;
       const props = f.properties || {};
       const dist = distanceMeters(lat, lng, la, ln);
-      if (dist > radiusMeters * 1.3) return null;
+      // /reverse filtrerer allerede på radius; vi ligger litt romslig her
+      if (dist > radiusMeters * 2) return null;
       return {
         id: `photon-${props.osm_type || 'n'}-${props.osm_id}`,
         lat: la, lng: ln, dist,
@@ -77,7 +81,7 @@ async function fromOverpass(category, lat, lng, radiusMeters, signal) {
   const def = CATEGORIES[category];
   const filter = def.tag.replace(':', '=');
   const r = Math.round(radiusMeters);
-  const query = `[out:json][timeout:25];nwr[${filter}](around:${r},${lat.toFixed(5)},${lng.toFixed(5)});out center 100;`;
+  const query = `[out:json][timeout:30];nwr[${filter}](around:${r},${lat.toFixed(5)},${lng.toFixed(5)});out center 500;`;
   const data = encodeURIComponent(query);
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
@@ -145,23 +149,19 @@ export async function fetchPois(category, lat, lng, radiusMeters = 1500, signal)
   const cKey = `${category}:${lat.toFixed(3)}:${lng.toFixed(3)}:${r}`;
   if (cache.has(cKey)) return cache.get(cKey);
 
-  let photonResults = [];
-  let overpassResults = [];
+  // Kjør BEGGE kilder parallelt og slå sammen — gir mye flere treff enn fallback-strategi.
+  // Overpass er autoritativt (alle treff fra OSM), Photon legger til berikede attributter.
+  const [overpassResults, photonResults] = await Promise.all([
+    fromOverpass(category, lat, lng, radiusMeters, signal).catch((e) => {
+      console.warn('[overpass] failed:', e.message); return [];
+    }),
+    fromPhoton(category, lat, lng, radiusMeters, signal).catch((e) => {
+      console.warn('[photon] failed:', e.message); return [];
+    })
+  ]);
 
-  if (def.preferOverpass) {
-    // Hent Overpass først for toaletter/gym (Photon finner ikke disse uten navn)
-    overpassResults = await fromOverpass(category, lat, lng, radiusMeters, signal).catch(() => []);
-    if (overpassResults.length < 5) {
-      photonResults = await fromPhoton(category, lat, lng, radiusMeters, signal).catch(() => []);
-    }
-  } else {
-    photonResults = await fromPhoton(category, lat, lng, radiusMeters, signal).catch(() => []);
-    if (photonResults.length < 5) {
-      overpassResults = await fromOverpass(category, lat, lng, radiusMeters, signal).catch(() => []);
-    }
-  }
-
-  const combined = merge(photonResults, overpassResults);
+  // Overpass først så de rikere taggene vinner ved dedup
+  const combined = merge(overpassResults, photonResults);
   console.log('[pois] ✓', combined.length, category, '(photon:', photonResults.length, ', overpass:', overpassResults.length, ')');
   if (combined.length > 0) cache.set(cKey, combined);
   return combined;
