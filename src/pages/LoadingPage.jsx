@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { useGeolocation } from '../hooks/useGeolocation.js';
 import { prefetchKartverket } from '../services/kartverket.js';
-import { fetchPois } from '../services/overpass.js';
 import { useMapData } from '../context/MapDataContext.jsx';
 import '../styles/loading.css';
 
@@ -11,7 +10,7 @@ export default function LoadingPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const geo = useGeolocation();
-  const { setPosition, setGeoStatus, setGeoError, setPoisByCategory, setLoadingDone } = useMapData();
+  const { setPosition, setGeoStatus, setGeoError, setLoadingDone } = useMapData();
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState(t('loadingGeo'));
   const ran = useRef(false);
@@ -23,32 +22,26 @@ export default function LoadingPage() {
     (async () => {
       // 1) Posisjonstillatelse
       setStep(t('loadingGeo'));
-      setProgress(10);
+      setProgress(20);
       const { status, position, error } = await geo.request();
       setGeoStatus(status);
       setPosition(position);
       setGeoError(error || null);
-      setProgress(40);
+      setProgress(60);
 
-      // 2) Prefetch kart-tile
+      // 2) Prefetch kart-tile (med maks 2s timeout — ikke kritisk)
       setStep(t('loadingMap'));
-      await prefetchKartverket();
-      setProgress(70);
+      await Promise.race([
+        prefetchKartverket(),
+        new Promise((resolve) => setTimeout(resolve, 2000))
+      ]);
 
-      // 3) Prefetch POIs for første kategori (toaletter) i bakgrunnen
-      setStep(t('loadingPois'));
-      try {
-        const pois = await fetchPois('toilets', position.lat, position.lng, 2000);
-        setPoisByCategory((prev) => ({ ...prev, toilets: pois }));
-      } catch {
-        // Ikke kritisk – appen funker uten
-      }
       setProgress(100);
       setStep(t('loadingDone'));
       setLoadingDone(true);
 
       // Kort pause så brukeren ser 100%
-      setTimeout(() => navigate('/app', { replace: true }), 400);
+      setTimeout(() => navigate('/app', { replace: true }), 300);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
