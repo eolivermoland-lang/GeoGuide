@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 const OSLO = { lat: 59.9139, lng: 10.7522 };
 
@@ -6,6 +6,36 @@ export function useGeolocation() {
   const [position, setPosition] = useState(null);
   const [status, setStatus] = useState('idle'); // idle | prompting | granted | denied | unavailable | timeout
   const [error, setError] = useState(null);
+  const watchIdRef = useRef(null);
+
+  const watch = useCallback((onUpdate) => {
+    if (!('geolocation' in navigator)) return () => {};
+    if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const p = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          heading: pos.coords.heading,
+          speed: pos.coords.speed
+        };
+        setPosition(p);
+        onUpdate?.(p);
+      },
+      (err) => {
+        console.warn('Geolocation watch error:', err.code, err.message);
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
+    );
+    watchIdRef.current = id;
+    return () => {
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, []);
 
   const request = useCallback(() => {
     return new Promise((resolve) => {
@@ -37,5 +67,5 @@ export function useGeolocation() {
     });
   }, []);
 
-  return { position, status, error, request, fallback: OSLO };
+  return { position, status, error, request, watch, fallback: OSLO };
 }

@@ -6,6 +6,7 @@ import PlaceDetails from '../components/PlaceDetails.jsx';
 import { useI18n, LangSwitch } from '../i18n/I18nContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useMapData } from '../context/MapDataContext.jsx';
+import { useGeolocation } from '../hooks/useGeolocation.js';
 import { fetchPois } from '../services/overpass.js';
 import '../styles/map.css';
 import '../styles/details.css';
@@ -16,9 +17,11 @@ export default function MapPage() {
   const { t } = useI18n();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { position, geoStatus, poisByCategory, setPoisByCategory } = useMapData();
+  const { position, geoStatus, poisByCategory, setPoisByCategory, setPosition } = useMapData();
+  const geo = useGeolocation();
   const center = position || FALLBACK;
   const [activeCategory, setActiveCategory] = useState(null);
+  const [followUser, setFollowUser] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [focusTarget, setFocusTarget] = useState(null);
   const [view, setView] = useState(null);
@@ -27,6 +30,13 @@ export default function MapPage() {
   const [poiError, setPoiError] = useState(null);
   const [selectedPoi, setSelectedPoi] = useState(null);
   const abortRef = useRef(null);
+
+  // Start kontinuerlig posisjonsoppdatering så pinpointeren følger brukeren
+  useEffect(() => {
+    const stop = geo.watch((p) => setPosition(p));
+    return stop;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const runSearch = useCallback(async (category, currentView) => {
     if (!currentView || !category) return;
@@ -125,6 +135,9 @@ export default function MapPage() {
             onSearchHere={() => runSearch(activeCategory, view)}
             loadingPois={loadingPois}
             onSelectPoi={setSelectedPoi}
+            followUser={followUser}
+            onUserDrag={() => setFollowUser(false)}
+            onRecenter={() => setFollowUser(true)}
           />
           {selectedPoi && (
             <PlaceDetails

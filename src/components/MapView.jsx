@@ -40,6 +40,19 @@ function FlyTo({ center }) {
   return null;
 }
 
+/* Følger brukerens posisjon. Slår seg av om brukeren drar kartet manuelt. */
+function FollowUser({ userPosition, follow, onUserDrag }) {
+  const map = useMap();
+  useMapEvents({
+    dragstart() { onUserDrag?.(); }
+  });
+  useEffect(() => {
+    if (!follow || !userPosition) return;
+    map.panTo([userPosition.lat, userPosition.lng], { animate: true, duration: 0.5 });
+  }, [follow, userPosition?.lat, userPosition?.lng, map]);
+  return null;
+}
+
 /* Sender senterpunkt + radius (meter) til foreldre. Debounced. */
 function ViewReporter({ onChange }) {
   const timer = useRef(null);
@@ -69,7 +82,7 @@ function ViewReporter({ onChange }) {
   return null;
 }
 
-export default function MapView({ center, userPosition, pois, activeCategory, focusTarget, onViewChange, showSearchHere, onSearchHere, loadingPois, onSelectPoi }) {
+export default function MapView({ center, userPosition, pois, activeCategory, focusTarget, onViewChange, showSearchHere, onSearchHere, loadingPois, onSelectPoi, followUser, onUserDrag, onRecenter }) {
   const { t } = useI18n();
   const categoryDef = activeCategory ? CATEGORIES[activeCategory] : null;
   const icon = useMemo(
@@ -114,8 +127,21 @@ export default function MapView({ center, userPosition, pois, activeCategory, fo
           </Marker>
         ))}
         <FlyTo center={focusTarget} />
+        <FollowUser userPosition={userPosition} follow={followUser} onUserDrag={onUserDrag} />
         <ViewReporter onChange={onViewChange} />
       </MapContainer>
+      {userPosition && (
+        <button
+          type="button"
+          className={`recenter-btn${followUser ? ' recenter-btn--active' : ''}`}
+          onClick={onRecenter}
+          aria-pressed={followUser}
+          aria-label={t('recenter')}
+          title={t('recenter')}
+        >
+          <span aria-hidden="true">📍</span>
+        </button>
+      )}
       {(showSearchHere || loadingPois) && activeCategory && (
         <button
           type="button"
