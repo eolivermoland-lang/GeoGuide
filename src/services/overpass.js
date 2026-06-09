@@ -9,10 +9,20 @@ const PHOTON_URL = 'https://photon.komoot.io/api';
 const OVERPASS_ENDPOINTS = ['/api/overpass'];
 
 export const CATEGORIES = {
-  toilets:     { tag: 'amenity:toilets',         q: 'toalett',    icon: '🚻', color: '#2a7ab8', preferOverpass: true },
-  restaurants: { tag: 'amenity:restaurant',      q: 'restaurant', icon: '🍽️', color: '#c46a18' },
-  pharmacies:  { tag: 'amenity:pharmacy',        q: 'apotek',     icon: '⚕️', color: '#117a3d' },
-  gyms:        { tag: 'leisure:fitness_centre',  q: 'gym',        icon: '🏋️', color: '#7a1aa1', preferOverpass: true }
+  restaurants:  { tag: 'amenity:restaurant',       q: 'restaurant', color: '#c46a18' },
+  cafes:        { tag: 'amenity:cafe',             q: 'kafé',       color: '#8a5a2b' },
+  supermarkets: { tag: 'shop:supermarket',         q: 'supermarked', color: '#1f9d55' },
+  pharmacies:   { tag: 'amenity:pharmacy',         q: 'apotek',     color: '#117a3d' },
+  hospitals:    { tag: 'amenity:hospital',         q: 'sykehus',    color: '#c0223b' },
+  gyms:         { tag: 'leisure:fitness_centre',   q: 'gym',        color: '#7a1aa1', preferOverpass: true },
+  toilets:      { tag: 'amenity:toilets',          q: 'toalett',    color: '#2a7ab8', preferOverpass: true },
+  parking:      { tag: 'amenity:parking',          q: 'parkering',  color: '#3d5a80', preferOverpass: true },
+  gas_stations: { tag: 'amenity:fuel',             q: 'bensinstasjon', color: '#d97706' },
+  atms:         { tag: 'amenity:atm',              q: 'minibank',   color: '#0f766e', preferOverpass: true },
+  hotels:       { tag: 'tourism:hotel',            q: 'hotell',     color: '#6b21a8' },
+  bus_stops:    { tag: 'highway:bus_stop',         q: 'busstopp',   color: '#0369a1', preferOverpass: true },
+  parks:        { tag: 'leisure:park',             q: 'park',       color: '#15803d', preferOverpass: true },
+  schools:      { tag: 'amenity:school',           q: 'skole',      color: '#b45309' }
 };
 
 const cache = new Map();

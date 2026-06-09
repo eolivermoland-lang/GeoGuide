@@ -1,34 +1,27 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap, useMapEvents, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import { KARTVERKET_TILE_URL, KARTVERKET_ATTRIBUTION } from '../services/kartverket.js';
 import { CATEGORIES } from '../services/overpass.js';
+import { markerIconHtml, userArrowHtml } from '../icons.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-
-const DefaultIcon = L.icon({
-  iconUrl, iconRetinaUrl, shadowUrl,
-  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-
-function makeCategoryIcon(color, emoji) {
-  const html = `
-    <div style="
-      background:${color};
-      width:32px;height:32px;border-radius:50% 50% 50% 0;
-      transform:rotate(-45deg);
-      display:grid;place-items:center;
-      box-shadow:0 2px 6px rgba(0,0,0,0.3);
-      border:2px solid #fff;
-    ">
-      <span style="transform:rotate(45deg);font-size:16px;line-height:1;">${emoji}</span>
-    </div>`;
+function makeCategoryIcon(name, color) {
   return L.divIcon({
-    html, className: '', iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -28]
+    html: markerIconHtml(name, color),
+    className: 'marker-pin-wrap',
+    iconSize: [36, 44],
+    iconAnchor: [18, 40],
+    popupAnchor: [0, -34]
+  });
+}
+
+function makeUserIcon(heading) {
+  return L.divIcon({
+    html: userArrowHtml(heading),
+    className: 'user-arrow-wrap',
+    iconSize: [44, 44],
+    iconAnchor: [22, 22]
   });
 }
 
@@ -86,8 +79,12 @@ export default function MapView({ center, userPosition, pois, activeCategory, fo
   const { t } = useI18n();
   const categoryDef = activeCategory ? CATEGORIES[activeCategory] : null;
   const icon = useMemo(
-    () => categoryDef ? makeCategoryIcon(categoryDef.color, categoryDef.icon) : DefaultIcon,
-    [categoryDef]
+    () => categoryDef ? makeCategoryIcon(activeCategory, categoryDef.color) : makeCategoryIcon('default', '#444'),
+    [categoryDef, activeCategory]
+  );
+  const userIcon = useMemo(
+    () => makeUserIcon(userPosition?.heading),
+    [userPosition?.heading]
   );
 
   return (
@@ -106,13 +103,12 @@ export default function MapView({ center, userPosition, pois, activeCategory, fo
           maxZoom={20}
         />
         {userPosition && (
-          <CircleMarker
-            center={[userPosition.lat, userPosition.lng]}
-            radius={9}
-            pathOptions={{ color: '#0062ba', fillColor: '#0062ba', fillOpacity: 0.85, weight: 3 }}
-          >
-            <Popup>{t('yourLocation')}</Popup>
-          </CircleMarker>
+          <Marker
+            position={[userPosition.lat, userPosition.lng]}
+            icon={userIcon}
+            keyboard={false}
+            interactive={false}
+          />
         )}
         {pois && pois.map((p) => (
           <Marker

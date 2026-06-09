@@ -113,9 +113,13 @@ export default function MapPage() {
       <div className="app-body">
         <Sidebar
           open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
           poisByCategory={poisByCategory}
           activeCategory={activeCategory}
-          setActiveCategory={setActiveCategory}
+          setActiveCategory={(c) => {
+            setActiveCategory(c);
+            if (c) setSidebarOpen(false);
+          }}
           onPickResult={(r) => {
             setFocusTarget({ lat: r.lat, lng: r.lng });
             setSidebarOpen(false);
@@ -123,6 +127,14 @@ export default function MapPage() {
           loadingPois={loadingPois}
           poiError={poiError}
         />
+        {sidebarOpen && (
+          <button
+            type="button"
+            className="sidebar-backdrop"
+            aria-label={t('closeMenu')}
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
         <main id="main-content">
           <MapView
             center={center}
